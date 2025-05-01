@@ -249,124 +249,10 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
     <script>
-        class DebtCalculator {
-            constructor() {
-                this.accounts = [];
-                this.monthlySavings = 0;
-                this.strategy = 'avalanche';
-            }
-
-            processCreditReport(data) {
-                try {
-                    const accounts = data.INProfileResponse.CAIS_Account.CAIS_Account_DETAILS;
-                    this.accounts = accounts.map(account => ({
-                        accountNumber: account.Account_Number,
-                        accountType: account.Account_Type,
-                        balance: parseFloat(account.Current_Balance),
-                        interestRate: parseFloat(account.Rate_of_Interest),
-                        portfolioType: account.Portfolio_Type,
-                        tenure: account.Repayment_Tenure ? parseInt(account.Repayment_Tenure) : null,
-                        originalAmount: account.Highest_Credit_or_Original_Loan_Amount ? 
-                            parseFloat(account.Highest_Credit_or_Original_Loan_Amount) : null
-                    }));
-                } catch (error) {
-                    console.error('Error processing credit report:', error);
-                    throw new Error('Invalid credit report format');
-                }
-            }
-
-            calculateEMI(principal, rate, tenure) {
-                const monthlyRate = rate / 12 / 100;
-                return principal * monthlyRate * Math.pow(1 + monthlyRate, tenure) / (Math.pow(1 + monthlyRate, tenure) - 1);
-            }
-
-            generateRepaymentPlan() {
-                let remainingSavings = this.monthlySavings;
-                let months = 0;
-                let totalInterest = 0;
-                const monthlyBreakdown = [];
-                const activeAccounts = [...this.accounts];
-
-                while (activeAccounts.length > 0) {
-                    months++;
-                    let monthInterest = 0;
-                    let monthPrincipal = 0;
-
-                    // Calculate minimum payments and interest
-                    activeAccounts.forEach(account => {
-                        if (account.accountType === '05') { // Personal Loan
-                            const emi = this.calculateEMI(
-                                account.originalAmount,
-                                account.interestRate,
-                                account.tenure
-                            );
-                            const interest = account.balance * (account.interestRate / 12 / 100);
-                            const principal = emi - interest;
-                            
-                            account.balance -= principal;
-                            monthInterest += interest;
-                            monthPrincipal += principal;
-
-                            if (account.balance <= 0) {
-                                account.balance = 0;
-                                const index = activeAccounts.indexOf(account);
-                                if (index > -1) activeAccounts.splice(index, 1);
-                            }
-                        } else { // Credit Card
-                            const minPayment = Math.max(account.balance * 0.05, 500);
-                            const interest = account.balance * (account.interestRate / 12 / 100);
-                            
-                            account.balance += interest;
-                            monthInterest += interest;
-                            
-                            if (remainingSavings > 0) {
-                                const payment = Math.min(account.balance, remainingSavings);
-                                account.balance -= payment;
-                                monthPrincipal += payment;
-                                remainingSavings -= payment;
-                            }
-                            
-                            if (account.balance <= 0) {
-                                const index = activeAccounts.indexOf(account);
-                                if (index > -1) activeAccounts.splice(index, 1);
-                            }
-                        }
-                    });
-
-                    totalInterest += monthInterest;
-                    monthlyBreakdown.push({
-                        month: months,
-                        interest: monthInterest,
-                        principal: monthPrincipal,
-                        remainingDebt: activeAccounts.reduce((sum, acc) => sum + acc.balance, 0)
-                    });
-
-                    remainingSavings = this.monthlySavings;
-                }
-
-                return {
-                    months,
-                    totalInterest,
-                    monthlyBreakdown
-                };
-            }
-
-            calculateInterestSavings() {
-                // Placeholder for interest savings calculation
-                return {
-                    interestSaved: 0,
-                    monthsSaved: 0
-                };
-            }
-        }
-
-        // DOM Elements
         const form = document.getElementById('debtForm');
         const resultSection = document.querySelector('.result-section');
         const loading = document.querySelector('.loading');
-        const calculator = new DebtCalculator();
 
-        // Event Listeners
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             console.log('Form submitted');
@@ -396,21 +282,114 @@
                 const data = JSON.parse(text);
                 console.log('JSON parsed successfully:', data);
 
-                calculator.processCreditReport(data);
-                console.log('Credit report processed');
-                
-                calculator.monthlySavings = monthlySavings;
-                calculator.strategy = strategy;
+                // Send data to Flask backend
+                const response = await fetch('http://localhost:5000/calculate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        creditReport: data,
+                        monthlySavings: monthlySavings,
+                        strategy: strategy
+                    })
+                });
 
-                const plan = calculator.generateRepaymentPlan();
-                console.log('Repayment plan generated:', plan);
-                
-                const savings = calculator.calculateInterestSavings();
-                console.log('Savings calculated:', savings);
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                }
 
-                // Update UI
-                updateUI(plan, savings);
-                console.log('UI updated');
+                const result = await response.json();
+                console.log('Backend response:', result);
+
+                if (!result.success) {
+                    throw new Error(result.error || 'Unknown error occurred');
+                }
+
+                // Update UI with results
+                document.getElementById('totalDebt').textContent = result.results.totalDebt.toFixed(2);
+                document.getElementById('totalCreditCards').textContent = result.results.totalCreditCards.toFixed(2);
+                document.getElementById('totalPersonalLoans').textContent = result.results.totalPersonalLoans.toFixed(2);
+                
+                document.getElementById('strategyUsed').textContent = result.results.strategy;
+                document.getElementById('monthsToFreedom').textContent = result.results.monthsToFreedom;
+                document.getElementById('totalInterest').textContent = result.results.totalInterest.toFixed(2);
+                document.getElementById('interestSaved').textContent = result.results.interestSaved.toFixed(2);
+                document.getElementById('monthsSaved').textContent = result.results.monthsSaved;
+
+                // Update tables
+                const creditCardsTable = document.getElementById('creditCardsTable');
+                const personalLoansTable = document.getElementById('personalLoansTable');
+
+                creditCardsTable.innerHTML = '';
+                personalLoansTable.innerHTML = '';
+
+                result.results.accounts.forEach(account => {
+                    const row = document.createElement('tr');
+                    if (account.accountType === '05') {
+                        row.innerHTML = `
+                            <td>${account.accountNumber}</td>
+                            <td>${account.balance.toFixed(2)}</td>
+                            <td>${account.interestRate.toFixed(2)}</td>
+                            <td>${account.emi.toFixed(2)}</td>
+                            <td>${account.tenure}</td>
+                        `;
+                        personalLoansTable.appendChild(row);
+                    } else {
+                        row.innerHTML = `
+                            <td>${account.accountNumber}</td>
+                            <td>${account.balance.toFixed(2)}</td>
+                            <td>${account.interestRate.toFixed(2)}</td>
+                            <td>${account.minPayment.toFixed(2)}</td>
+                        `;
+                        creditCardsTable.appendChild(row);
+                    }
+                });
+
+                // Create charts
+                const timelineCtx = document.getElementById('timelineChart').getContext('2d');
+                new Chart(timelineCtx, {
+                    type: 'line',
+                    data: {
+                        labels: result.timeline.map(item => `Month ${item.month}`),
+                        datasets: [{
+                            label: 'Remaining Debt',
+                            data: result.timeline.map(item => item.remainingDebt),
+                            borderColor: '#4a6baf',
+                            tension: 0.1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false
+                    }
+                });
+
+                const interestCtx = document.getElementById('interestChart').getContext('2d');
+                new Chart(interestCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Interest', 'Principal'],
+                        datasets: [{
+                            data: [
+                                result.timeline.reduce((sum, item) => sum + item.interest, 0),
+                                result.timeline.reduce((sum, item) => sum + item.principal, 0)
+                            ],
+                            backgroundColor: ['#dc3545', '#28a745']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        }
+                    }
+                });
                 
                 loading.style.display = 'none';
                 resultSection.style.display = 'block';
@@ -421,119 +400,6 @@
                 loading.style.display = 'none';
             }
         });
-
-        function updateUI(plan, savings) {
-            console.log('Updating UI with plan:', plan);
-            // Update summary
-            const totalDebt = calculator.accounts.reduce((sum, acc) => sum + acc.balance, 0);
-            const totalCreditCards = calculator.accounts.filter(acc => acc.accountType !== '05')
-                .reduce((sum, acc) => sum + acc.balance, 0);
-            const totalPersonalLoans = calculator.accounts.filter(acc => acc.accountType === '05')
-                .reduce((sum, acc) => sum + acc.balance, 0);
-
-            console.log('Calculated totals:', { totalDebt, totalCreditCards, totalPersonalLoans });
-
-            document.getElementById('totalDebt').textContent = totalDebt.toFixed(2);
-            document.getElementById('totalCreditCards').textContent = totalCreditCards.toFixed(2);
-            document.getElementById('totalPersonalLoans').textContent = totalPersonalLoans.toFixed(2);
-            
-            document.getElementById('strategyUsed').textContent = 
-                calculator.strategy === 'avalanche' ? 'Avalanche' : 'Snowball';
-            document.getElementById('monthsToFreedom').textContent = plan.months;
-            document.getElementById('totalInterest').textContent = plan.totalInterest.toFixed(2);
-            document.getElementById('interestSaved').textContent = savings.interestSaved.toFixed(2);
-            document.getElementById('monthsSaved').textContent = savings.monthsSaved;
-
-            // Update tables
-            updateTables();
-
-            // Create charts
-            createCharts(plan.monthlyBreakdown);
-        }
-
-        function updateTables() {
-            const creditCardsTable = document.getElementById('creditCardsTable');
-            const personalLoansTable = document.getElementById('personalLoansTable');
-
-            creditCardsTable.innerHTML = '';
-            personalLoansTable.innerHTML = '';
-
-            calculator.accounts.forEach(account => {
-                const row = document.createElement('tr');
-                if (account.accountType === '05') {
-                    // Personal Loan
-                    const emi = calculator.calculateEMI(
-                        account.originalAmount,
-                        account.interestRate,
-                        account.tenure
-                    );
-                    row.innerHTML = `
-                        <td>${account.accountNumber}</td>
-                        <td>${account.balance.toFixed(2)}</td>
-                        <td>${account.interestRate.toFixed(2)}</td>
-                        <td>${emi.toFixed(2)}</td>
-                        <td>${account.tenure}</td>
-                    `;
-                    personalLoansTable.appendChild(row);
-                } else {
-                    // Credit Card
-                    const minPayment = Math.max(account.balance * 0.05, 500);
-                    row.innerHTML = `
-                        <td>${account.accountNumber}</td>
-                        <td>${account.balance.toFixed(2)}</td>
-                        <td>${account.interestRate.toFixed(2)}</td>
-                        <td>${minPayment.toFixed(2)}</td>
-                    `;
-                    creditCardsTable.appendChild(row);
-                }
-            });
-        }
-
-        function createCharts(monthlyBreakdown) {
-            // Timeline Chart
-            const timelineCtx = document.getElementById('timelineChart').getContext('2d');
-            new Chart(timelineCtx, {
-                type: 'line',
-                data: {
-                    labels: monthlyBreakdown.map(item => `Month ${item.month}`),
-                    datasets: [{
-                        label: 'Remaining Debt',
-                        data: monthlyBreakdown.map(item => item.remainingDebt),
-                        borderColor: '#4a6baf',
-                        tension: 0.1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false
-                }
-            });
-
-            // Interest vs Principal Chart
-            const interestCtx = document.getElementById('interestChart').getContext('2d');
-            new Chart(interestCtx, {
-                type: 'bar',
-                data: {
-                    labels: ['Interest', 'Principal'],
-                    datasets: [{
-                        data: [
-                            monthlyBreakdown.reduce((sum, item) => sum + item.interest, 0),
-                            monthlyBreakdown.reduce((sum, item) => sum + item.principal, 0)
-                        ],
-                        backgroundColor: ['#dc3545', '#28a745']
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    }
-                }
-            });
-        }
     </script>
 </body>
 </html>
