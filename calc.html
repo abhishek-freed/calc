@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Indian Debt Calculator</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        h1, h2, h3 {
+            color: #2c3e50;
+        }
+        
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        #results, #details {
+            display: none;
+        }
+        
+        .summary-box {
+            background-color: #f8f9fa;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .highlight {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .saving {
+            color: #27ae60;
+        }
+        
+        .tab-container {
+            margin-top: 20px;
+        }
+        
+        .tab-buttons {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .tab-button {
+            background-color: #f1f1f1;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: 0.3s;
+        }
+        
+        .tab-button:hover {
+            background-color: #ddd;
+        }
+        
+        .tab-button.active {
+            background-color: #3498db;
+            color: white;
+        }
+        
+        .tab-content {
+            display: none;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-top: none;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #3498db;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error {
+            color: #e74c3c;
+            font-weight: bold;
+            background-color: #fde2e2;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            display: none;
+        }
+        
+        .timeline {
+            margin-top: 20px;
+        }
+        
+        .month-card {
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            padding: 15px;
+        }
+        
+        .month-header {
+            display: flex;
+            justify-content: space-between;
+            cursor: pointer;
+        }
+        
+        .month-details {
+            display: none;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+        }
+        
+        .chart-container {
+            height: 400px;
+            margin: 20px 0;
+        }
+        
+        .payment-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        
+        .payment-table th, .payment-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        
+        .payment-table th {
+            background-color: #f2f2f2;
+        }
+        
+        .payment-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Indian Debt Calculator</h1>
+        <p>Upload your credit report JSON file and see how quickly you can pay off your debts with optimized repayment strategies.</p>
+        
+        <div class="form-group">
+            <label for="jsonFile">Upload Credit Report JSON File:</label>
+            <input type="file" id="jsonFile" accept=".json">
+        </div>
+        
+        <div class="form-group">
+            <label for="monthlySavings">Monthly Debt Repayment Capacity (₹):</label>
+            <input type="number" id="monthlySavings" min="1" step="100" placeholder="Enter amount in rupees">
+        </div>
+        
+        <div class="form-group">
+            <label for="strategy">Repayment Strategy:</label>
+            <select id="strategy">
+                <option value="avalanche">Avalanche (Highest interest first)</option>
+                <option value="snowball">Snowball (Smallest balance first)</option>
+            </select>
+        </div>
+        
+        <div class="error" id="errorMsg"></div>
+        
+        <button id="calculateBtn">Calculate Repayment Plan</button>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Processing... Please wait</p>
+        </div>
+    </div>
+    
+    <div class="container" id="results">
+        <h2>Debt Repayment Summary</h2>
+        
+        <div class="summary-box">
+            <h3>Your Debt Overview</h3>
+            <p>Total Debt: <span class="highlight" id="totalDebt">₹0.00</span></p>
+            <p>Credit Cards: <span class="highlight" id="ccDebt">₹0.00</span></p>
+            <p>Personal Loans: <span class="highlight" id="plDebt">₹0.00</span></p>
+        </div>
+        
+        <div class="summary-box">
+            <h3>Optimized Repayment Plan</h3>
+            <p>Strategy: <span class="highlight" id="strategyDisplay">Avalanche</span></p>
+            <p>Time to Debt Freedom: <span class="highlight" id="monthsOptimized">0</span> months</p>
+            <p>Total Interest Paid: <span class="highlight" id="interestOptimized">₹0.00</span></p>
+        </div>
+        
+        <div class="summary-box">
+            <h3>Your Savings</h3>
+            <p>Interest Saved vs. Minimum Payments: <span class="highlight saving" id="interestSaved">₹0.00</span></p>
+            <p>Time Saved: <span class="highlight saving" id="timeSaved">0</span> months</p>
+        </div>
+        
+        <div class="tab-container">
+            <div class="tab-buttons">
+                <button class="tab-button active" onclick="openTab('charts')">Charts</button>
+                <button class="tab-button" onclick="openTab('timeline')">Payment Timeline</button>
+                <button class="tab-button" onclick="openTab('details')">Debt Details</button>
+            </div>
+            
+            <div id="charts" class="tab-content" style="display: block;">
+                <h3>Repayment Progress</h3>
+                <div class="chart-container" id="balanceChart"></div>
+                
+                <h3>Interest vs. Principal</h3>
+                <div class="chart-container" id="interestChart"></div>
+            </div>
+            
+            <div id="timeline" class="tab-content">
+                <h3>Month-by-Month Payment Plan</h3>
+                <div id="timelineContainer" class="timeline">
+                    <!-- Timeline items will be inserted here -->
+                </div>
+            </div>
+            
+            <div id="details" class="tab-content">
+                <h3>Credit Cards</h3>
+                <table class="payment-table" id="ccTable">
+                    <thead>
+                        <tr>
+                            <th>Account Number</th>
+                            <th>Balance (₹)</th>
+                            <th>APR (%)</th>
+                            <th>Min Payment (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- CC data will be inserted here -->
+                    </tbody>
+                </table>
+                
+                <h3>Personal Loans</h3>
+                <table class="payment-table" id="plTable">
+                    <thead>
+                        <tr>
+                            <th>Account Number</th>
+                            <th>Balance (₹)</th>
+                            <th>APR (%)</th>
+                            <th>EMI (₹)</th>
+                            <th>Tenure (months)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- PL data will be inserted here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.1/chart.min.js"></script>
+    <script>
+        // Constants
+        const DEFAULT_CC_APR = 36.0;
+        const DEFAULT_PL_APR = 15.0;
+        const DEFAULT_LOCKIN = 6;
+        const MAX_REPAYMENT_MONTHS = 120;
+        const MIN_CC_PAYMENT_PERCENT = 0.05;
+        const MIN_CC_PAYMENT_AMOUNT = 100;
+        const ACTIVE_ACCOUNT_STATUS = "11";
+        
+        // Global variables
+        let jsonData = null;
+        let debtCalculator = null;
+        let charts = {};
+        
+        // DOM elements
+        const calculateBtn = document.getElementById('calculateBtn');
+        const jsonFileInput = document.getElementById('jsonFile');
+        const monthlySavingsInput = document.getElementById('monthlySavings');
+        const strategySelect = document.getElementById('strategy');
+        const loadingDiv = document.getElementById('loading');
+        const resultsDiv = document.getElementById('results');
+        const errorMsg = document.getElementById('errorMsg');
+        
+        // Event listeners
+        calculateBtn.addEventListener('click', handleCalculate);
+        
+        // Main calculation function
+        async function handleCalculate() {
+            try {
+                // Reset UI
+                errorMsg.style.display = 'none';
+                
+                // Validate inputs
+                const file = jsonFileInput.files[0];
+                if (!file) {
+                    throw new Error('Please upload a JSON file');
+                }
+                
+                const monthlySavings = parseFloat(monthlySavingsInput.value);
+                if (isNaN(monthlySavings) || monthlySavings <= 0) {
+                    throw new Error('Please enter a valid monthly savings amount');
+                }
+                
+                const strategy = strategySelect.value;
+                
+                // Show loading
+                loadingDiv.style.display = 'block';
+                resultsDiv.style.display = 'none';
+                
+                // Read and process the file
+                const data = await readJsonFile(file);
+                
+                // Create debt calculator and process data
+                debtCalculator = new DebtCalculator(data, monthlySavings, strategy);
+                await debtCalculator.generatePlans();
+                const results = debtCalculator.calculateInterestSavings();
+                
+                // Update UI with results
+                updateResults(results);
+                
+                // Hide loading, show results
+                loadingDiv.style.display = 'none';
+                resultsDiv.style.display = 'block';
+                
+            } catch (error) {
+                loadingDiv.style.display = 'none';
+                errorMsg.textContent = error.message;
+                errorMsg.style.display = 'block';
+                console.error(error);
+            }
+        }
+        
+        // File reading function
+        function readJsonFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                
+                reader.onload = function(event) {
+                    try {
+                        const jsonData = JSON.parse(event.target.result);
+                        resolve(jsonData);
+                    } catch (error) {
+                        reject(new Error('Invalid JSON file format'));
+                    }
+                };
+                
+                reader.onerror = function() {
+                    reject(new Error('Error reading file'));
+                };
+                
+                reader.readAsText(file);
+            });
+        }
+        
+        // Tab switching function
+        function openTab(tabName) {
+            // Hide all tab contents
+            const tabContents = document.getElementsByClassName('tab-content');
+            for (let i = 0; i < tabContents.length; i++) {
+                tabContents[i].style.display = 'none';
+            }
+            
+            // Remove active class from all tab buttons
+            const tabButtons = document.getElementsByClassName('tab-button');
+            for (let i = 0; i < tabButtons.length; i++) {
+                tabButtons[i].className = tabButtons[i].className.replace(' active', '');
+            }
+            
+            // Show the specific tab and add active class to the button
+            document.getElementById(tabName).style.display = 'block';
+            event.currentTarget.className += ' active';
+            
+            // Handle chart rendering if switching to charts tab
+            if (tabName === 'charts' && debtCalculator) {
+                renderCharts();
+            }
+        }
+        
+        // Format currency
+        function formatCurrency(amount) {
+            return '₹' + amount.toLocaleString('en-IN', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+        
+        // Update results UI
+        function updateResults(results) {
+            // Update summary
+            document.getElementById('strategyDisplay').textContent = 
+                strategySelect.value === 'avalanche' ? 'Avalanche (Highest interest first)' : 'Snowball (Smallest balance first)';
+            
+            document.getElementById('monthsOptimized').textContent = results.optimized.months;
+            document.getElementById('interestOptimized').textContent = formatCurrency(results.optimized.interest);
+            document.getElementById('interestSaved').textContent = formatCurrency(results.savings.interest);
+            document.getElementById('timeSaved').textContent = results.savings.months;
+            
+            // Calculate and display debt totals
+            let totalCCDebt = 0;
+            let totalPLDebt = 0;
+            
+            Object.values(debtCalculator.debt_data.credit_cards).forEach(card => {
+                totalCCDebt += card.balance;
+            });
+            
+            Object.values(debtCalculator.debt_data.personal_loans).forEach(loan => {
+                totalPLDebt += loan.balance;
+            });
+            
+            const totalDebt = totalCCDebt + totalPLDebt;
+            
+            document.getElementById('totalDebt').textContent = formatCurrency(totalDebt);
+            document.getElementById('ccDebt').textContent = formatCurrency(totalCCDebt);
+            document.getElementById('plDebt').textContent = formatCurrency(totalPLDebt);
+            
+            // Create debt details tables
+            populateDebtDetailsTable('ccTable', debtCalculator.debt_data.credit_cards, true);
+            populateDebtDetailsTable('plTable', debtCalculator.debt_data.personal_loans, false);
+            
+            // Render charts
+            renderCharts();
+            
+            // Create timeline
+            createTimeline();
+        }
+        
+        // Populate debt details table
+        function populateDebtDetailsTable(tableId, debtItems, isCreditCard) {
+            const tableBody = document.querySelector(`#${tableId} tbody`);
+            tableBody.innerHTML = '';
+            
+            Object.entries(debtItems).forEach(([accountNumber, data]) => {
+                const row = document.createElement('tr');
+                
+                // Add account number
+                const accountCell = document.createElement('td');
+                accountCell.textContent = accountNumber;
+                row.appendChild(accountCell);
+                
+                // Add balance
+                const balanceCell = document.createElement('td');
+                balanceCell.textContent = formatCurrency(data.balance);
+                row.appendChild(balanceCell);
+                
+                // Add APR
+                const aprCell = document.createElement('td');
+                aprCell.textContent = data.apr.toFixed(2) + '%';
+                row.appendChild(aprCell);
+                
+                // Add min payment or EMI
+                const paymentCell = document.createElement('td');
+                paymentCell.textContent = formatCurrency(isCreditCard ? data.min_payment : data.emi);
+                row.appendChild(paymentCell);
+                
+                // Add tenure for personal loans
+                if (!isCreditCard) {
+                    const tenureCell = document.createElement('td');
+                    tenureCell.textContent = data.tenure;
+                    row.appendChild(tenureCell);
+                }
+                
+                tableBody.appendChild(row);
+            });
+        }
+        
+        // Create timeline view
+        function createTimeline() {
+            const container = document.getElementById('timelineContainer');
+            container.innerHTML = '';
+            
+            const timeline = debtCalculator.optimized_plan.timeline;
+            
+            timeline.forEach((monthData, index) => {
+                // Create month card
+                const monthCard = document.createElement('div');
+                monthCard.className = 'month-card';
+                
+                // Calculate total payment and interest for the month
+                let totalPayment = 0;
+                let totalInterest = 0;
+                
+                // Add CC payments
+                Object.entries(monthData.payments.cc).forEach(([cc, amount]) => {
+                    totalPayment += amount;
+                });
+                
+                // Add PL payments
+                Object.entries(monthData.payments.pl).forEach(([pl, amount]) => {
+                    totalPayment += amount;
+                });
+                
+                // Add extra payments
+                Object.entries(monthData.payments.extra.cc).forEach(([cc, amount]) => {
+                    totalPayment += amount;
+                });
+                
+                Object.entries(monthData.payments.extra.pl).forEach(([pl, amount]) => {
+                    totalPayment += amount;
+                });
+                
+                // Add interest
+                Object.values(monthData.interest.cc).forEach(amount => {
+                    totalInterest += amount;
+                });
+                
+                Object.values(monthData.interest.pl).forEach(amount => {
+                    totalInterest += amount;
+                });
+                
+                // Calculate remaining total debt
+                let remainingDebt = 0;
+                Object.values(monthData.remaining_balances.credit_cards).forEach(balance => {
+                    remainingDebt += balance;
+                });
+                
+                Object.values(monthData.remaining_balances.personal_loans).forEach(balance => {
+                    remainingDebt += balance;
+                });
+                
+                // Create month header
+                const monthHeader = document.createElement('div');
+                monthHeader.className = 'month-header';
+                monthHeader.innerHTML = `
+                    <h3>Month ${monthData.month}</h3>
+                    <div>
+                        <span>Payment: ${formatCurrency(totalPayment)}</span> | 
+                        <span>Interest: ${formatCurrency(totalInterest)}</span> | 
+                        <span>Remaining: ${formatCurrency(remainingDebt)}</span>
+                    </div>
+                `;
+                
+                // Create details section (initially hidden)
+                const detailsSection = document.createElement('div');
+                detailsSection.className = 'month-details';
+                
+                // Add credit card details
+                if (Object.keys(monthData.payments.cc).length > 0 || 
+                    Object.keys(monthData.payments.extra.cc).length > 0) {
+                    
+                    const ccDetails = document.createElement('div');
+                    ccDetails.innerHTML = '<h4>Credit Card Payments</h4>';
+                    
+                    const ccTable = document.createElement('table');
+                    ccTable.className = 'payment-table';
+                    ccTable.innerHTML = `
+                        <thead>
+                            <tr>
+                                <th>Account</th>
+                                <th>Min Payment</th>
+                                <th>Extra Payment</th>
+                                <th>Interest</th>
+                                <th>Remaining</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    `;
+                    
+                    const ccTableBody = ccTable.querySelector('tbody');
+                    
+                    Object.keys(debtCalculator.debt_data.credit_cards).forEach(cc => {
+                        const minPayment = monthData.payments.cc[cc] || 0;
+                        const extraPayment = monthData.payments.extra.cc[cc] || 0;
+                        const interest = monthData.interest.cc[cc] || 0;
+                        const remaining = monthData.remaining_balances.credit_cards[cc] || 0;
+                        
+                        if (minPayment > 0 || extraPayment > 0 || remaining > 0) {
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td>${cc}</td>
+                                <td>${formatCurrency(minPayment)}</td>
+                                <td>${formatCurrency(extraPayment)}</td>
+                                <td>${formatCurrency(interest)}</td>
+                                <td>${formatCurrency(remaining)}</td>
+                            `;
+                            ccTableBody.appendChild(row);
+                        }
+                    });
+                    
+                    ccDetails.appendChild(ccTable);
+                    detailsSection.appendChild(ccDetails);
+                }
+                
+                // Add personal loan details
+                if (Object.keys(monthData.payments.pl).length > 0 || 
+                    Object.keys(monthData.payments.extra.pl).length > 0) {
+                    
+                    const plDetails = document.createElement('div');
+                    plDetails.innerHTML = '<h4>Personal Loan Payments</h4>';
+                    
+                    const plTable = document.createElement('table');
+                    plTable.className = 'payment-table';
+                    plTable.innerHTML = `
+                        <thead>
+                            <tr>
+                                <th>Account</th>
+                                <th>EMI Payment</th>
+                                <th>Extra Payment</th>
+                                <th>Interest</th>
+                                <th>Remaining</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    `;
+                    
+                    const plTableBody = plTable.querySelector('tbody');
+                    
+                    Object.keys(debtCalculator.debt_data.personal_loans).forEach(pl => {
+                        const emiPayment = monthData.payments.pl[pl] || 0;
+                        const extraPayment = monthData.payments.extra.pl[pl] || 0;
+                        const interest = monthData.interest.pl[pl] || 0;
+                        const remaining = monthData.remaining_balances.personal_loans[pl] || 0;
+                        
+                        if (emiPayment > 0 || extraPayment > 0 || remaining > 0) {
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td>${pl}</td>
+                                <td>${formatCurrency(emiPayment)}</td>
+                                <td>${formatCurrency(extraPayment)}</td>
+                                <td>${formatCurrency(interest)}</td>
+                                <td>${formatCurrency(remaining)}</td>
+                            `;
+                            plTableBody.appendChild(row);
+                        }
+                    });
+                    
+                    plDetails.appendChild(plTable);
+                    detailsSection.appendChild(plDetails);
+                }
+                
+                // Add toggle functionality
+                monthHeader.addEventListener('click', () => {
+                    detailsSection.style.display = 
+                        detailsSection.style.display === 'none' || detailsSection.style.display === '' 
+                            ? 'block' : 'none';
+                });
+                
+                // Assemble month card
+                monthCard.appendChild(monthHeader);
+                monthCard.appendChild(detailsSection);
+                
+                // Add month card to container
+                container.appendChild(monthCard);
+            });
+        }
+        
+        // Render charts
+        function renderCharts() {
+            const timeline = debtCalculator.optimized_plan.timeline;
+            
+            // Prepare chart data
+            const labels = timeline.map(entry => `Month ${entry.month}`);
+            
+            // Balance chart data
+            const ccBalances = [];
+            const plBalances = [];
+            
+            // Interest vs principal chart data
+            let cumulativePrincipal = 0;
+            let cumulativeInterest = 0;
+            const principalData = [0]; // Starting with 0
+            const interestData = [0]; // Starting with 0
+            
+            // Process timeline data
+            timeline.forEach((monthData, index) => {
+                // Calculate total balances for each month
+                let ccBalance = 0;
+                let plBalance = 0;
+                
+                Object.values(monthData.remaining_balances.credit_cards).forEach(balance => {
+                    ccBalance += balance;
+                });
+                
+                Object.values(monthData.remaining_balances.personal_loans).forEach(balance => {
+                    plBalance += balance;
+                });
+                
+                ccBalances.push(ccBalance);
+                plBalances.push(plBalance);
+                
+                // Calculate monthly interest and principal
+                let monthInterest = 0;
+                let monthPrincipal = 0;
+                
+                // Calculate interest for the month
+                Object.values(monthData.interest.cc).forEach(interest => {
+                    monthInterest += interest;
+                });
+                
+                Object.values(monthData.interest.pl).forEach(interest => {
+                    monthInterest += interest;
+                });
+                
+                // Calculate total payment for the month
+                let totalPayment = 0;
+                
+                // Add regular payments
+                Object.values(monthData.payments.cc).forEach(payment => {
+                    totalPayment += payment;
+                });
+                
+                Object.values(monthData.payments.pl).forEach(payment => {
+                    totalPayment += payment;
+                });
+                
+                // Add extra payments
+                Object.values(monthData.payments.extra.cc).forEach(payment => {
+                    totalPayment += payment;
+                });
+                
+                Object.values(monthData.payments.extra.pl).forEach(payment => {
+                    totalPayment += payment;
+                });
+                
+                // Principal is payment minus interest
+                monthPrincipal = totalPayment - monthInterest;
+                
+                // Add to cumulative totals
+                cumulativeInterest += monthInterest;
+                cumulativePrincipal += monthPrincipal;
+                
+                interestData.push(cumulativeInterest);
+                principalData.push(cumulativePrincipal);
+            });
+            
+            // Create balance chart
+            if (charts.balanceChart) {
+                charts.balanceChart.destroy();
+            }
+            
+            const balanceCtx = document.getElementById('balanceChart').getContext('2d');
+            charts.balanceChart = new Chart(balanceCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Start', ...labels],
+                    datasets: [
+                        {
+                            label: 'Credit Cards',
+                            data: [
+                                // Calculate starting CC balance
+                                Object.values(debtCalculator.debt_data.credit_cards).reduce(
+                                    (total, card) => total + card.balance, 0
+                                ),
+                                ...ccBalances
+                            ],
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                            fill: true
+                        },
+                        {
+                            label: 'Personal Loans',
+                            data: [
+                                // Calculate starting PL balance
+                                Object.values(debtCalculator.debt_data.personal_loans).reduce(
+                                    (total, loan) => total + loan.balance, 0
+                                ),
+                                ...plBalances
+                            ],
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                            fill: true
+                        },
+                        {
+                            label: 'Total Debt',
+                            data: [
+                                // Calculate starting total balance
+                                Object.values(debtCalculator.debt_data.credit_cards).reduce(
+                                    (total, card) => total + card.balance, 0
+                                ) +
+                                Object.values(debtCalculator.debt_data.personal_loans).reduce(
+                                    (total, loan) => total + loan.balance, 0
+                                ),
+                                ...ccBalances.map((cc, i) => cc + plBalances[i])
+                            ],
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 2,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Balance (₹)'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return '₹' + value.toLocaleString('en-IN');
+                                }
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Month'
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Debt Balance Over Time'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + 
+                                        '₹' + context.raw.toLocaleString('en-IN', {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2
+                                        });
+                                }
+                            }
+                        }
