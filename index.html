@@ -308,12 +308,21 @@
                     throw new Error(result.error || 'Unknown error occurred');
                 }
 
-                // Update UI with results
-                document.getElementById('totalDebt').textContent = result.results.optimized.interest.toFixed(2);
-                document.getElementById('totalCreditCards').textContent = result.results.optimized.interest.toFixed(2);
-                document.getElementById('totalPersonalLoans').textContent = result.results.optimized.interest.toFixed(2);
+                // Calculate total debt from the first month's remaining balances
+                const firstMonth = result.timeline[0];
+                const totalDebt = Object.values(firstMonth.remaining_balances.credit_cards).reduce((a, b) => a + b, 0) +
+                                Object.values(firstMonth.remaining_balances.personal_loans).reduce((a, b) => a + b, 0);
                 
-                document.getElementById('strategyUsed').textContent = 'Avalanche'; // Hardcoded for now
+                // Calculate total credit cards and personal loans
+                const totalCreditCards = Object.values(firstMonth.remaining_balances.credit_cards).reduce((a, b) => a + b, 0);
+                const totalPersonalLoans = Object.values(firstMonth.remaining_balances.personal_loans).reduce((a, b) => a + b, 0);
+
+                // Update UI with results
+                document.getElementById('totalDebt').textContent = totalDebt.toFixed(2);
+                document.getElementById('totalCreditCards').textContent = totalCreditCards.toFixed(2);
+                document.getElementById('totalPersonalLoans').textContent = totalPersonalLoans.toFixed(2);
+                
+                document.getElementById('strategyUsed').textContent = strategy.charAt(0).toUpperCase() + strategy.slice(1);
                 document.getElementById('monthsToFreedom').textContent = result.results.optimized.months;
                 document.getElementById('totalInterest').textContent = result.results.optimized.interest.toFixed(2);
                 document.getElementById('interestSaved').textContent = result.results.savings.interest.toFixed(2);
@@ -357,7 +366,7 @@
                         datasets: [{
                             data: [
                                 result.results.optimized.interest,
-                                result.results.optimized.interest * 0.5 // Approximate principal
+                                totalDebt // Principal is the initial total debt
                             ],
                             backgroundColor: ['#dc3545', '#28a745']
                         }]
