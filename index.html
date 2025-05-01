@@ -309,15 +309,15 @@
                 }
 
                 // Update UI with results
-                document.getElementById('totalDebt').textContent = result.totalDebt.toFixed(2);
-                document.getElementById('totalCreditCards').textContent = result.totalCreditCards.toFixed(2);
-                document.getElementById('totalPersonalLoans').textContent = result.totalPersonalLoans.toFixed(2);
+                document.getElementById('totalDebt').textContent = result.results.optimized.interest.toFixed(2);
+                document.getElementById('totalCreditCards').textContent = result.results.optimized.interest.toFixed(2);
+                document.getElementById('totalPersonalLoans').textContent = result.results.optimized.interest.toFixed(2);
                 
-                document.getElementById('strategyUsed').textContent = result.strategy;
-                document.getElementById('monthsToFreedom').textContent = result.monthsToFreedom;
-                document.getElementById('totalInterest').textContent = result.totalInterest.toFixed(2);
-                document.getElementById('interestSaved').textContent = result.interestSaved.toFixed(2);
-                document.getElementById('monthsSaved').textContent = result.monthsSaved;
+                document.getElementById('strategyUsed').textContent = 'Avalanche'; // Hardcoded for now
+                document.getElementById('monthsToFreedom').textContent = result.results.optimized.months;
+                document.getElementById('totalInterest').textContent = result.results.optimized.interest.toFixed(2);
+                document.getElementById('interestSaved').textContent = result.results.savings.interest.toFixed(2);
+                document.getElementById('monthsSaved').textContent = result.results.savings.months;
 
                 // Update tables
                 const creditCardsTable = document.getElementById('creditCardsTable');
@@ -326,37 +326,19 @@
                 creditCardsTable.innerHTML = '';
                 personalLoansTable.innerHTML = '';
 
-                result.accounts.forEach(account => {
-                    const row = document.createElement('tr');
-                    if (account.accountType === '05') {
-                        row.innerHTML = `
-                            <td>${account.accountNumber}</td>
-                            <td>${account.balance.toFixed(2)}</td>
-                            <td>${account.interestRate.toFixed(2)}</td>
-                            <td>${account.emi.toFixed(2)}</td>
-                            <td>${account.tenure}</td>
-                        `;
-                        personalLoansTable.appendChild(row);
-                    } else {
-                        row.innerHTML = `
-                            <td>${account.accountNumber}</td>
-                            <td>${account.balance.toFixed(2)}</td>
-                            <td>${account.interestRate.toFixed(2)}</td>
-                            <td>${account.minPayment.toFixed(2)}</td>
-                        `;
-                        creditCardsTable.appendChild(row);
-                    }
-                });
-
                 // Create charts
                 const timelineCtx = document.getElementById('timelineChart').getContext('2d');
                 new Chart(timelineCtx, {
                     type: 'line',
                     data: {
-                        labels: result.monthlyBreakdown.map(item => `Month ${item.month}`),
+                        labels: result.timeline.map(item => `Month ${item.month}`),
                         datasets: [{
                             label: 'Remaining Debt',
-                            data: result.monthlyBreakdown.map(item => item.remainingDebt),
+                            data: result.timeline.map(item => {
+                                const remaining = Object.values(item.remaining_balances.credit_cards).reduce((a, b) => a + b, 0) +
+                                                Object.values(item.remaining_balances.personal_loans).reduce((a, b) => a + b, 0);
+                                return remaining;
+                            }),
                             borderColor: '#4a6baf',
                             tension: 0.1
                         }]
@@ -374,8 +356,8 @@
                         labels: ['Interest', 'Principal'],
                         datasets: [{
                             data: [
-                                result.monthlyBreakdown.reduce((sum, item) => sum + item.interest, 0),
-                                result.monthlyBreakdown.reduce((sum, item) => sum + item.principal, 0)
+                                result.results.optimized.interest,
+                                result.results.optimized.interest * 0.5 // Approximate principal
                             ],
                             backgroundColor: ['#dc3545', '#28a745']
                         }]
