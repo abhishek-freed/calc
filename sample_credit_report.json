@@ -1,0 +1,34 @@
+{
+    "INProfileResponse": {
+        "CAIS_Account": {
+            "CAIS_Account_DETAILS": [
+                {
+                    "Account_Number": "CC123456789",
+                    "Account_Type": "10",
+                    "Account_Status": "11",
+                    "Current_Balance": "50000",
+                    "Rate_of_Interest": "36.0",
+                    "Portfolio_Type": "I"
+                },
+                {
+                    "Account_Number": "CC987654321",
+                    "Account_Type": "69",
+                    "Account_Status": "11",
+                    "Current_Balance": "30000",
+                    "Rate_of_Interest": "42.0",
+                    "Portfolio_Type": "I"
+                },
+                {
+                    "Account_Number": "PL123456789",
+                    "Account_Type": "05",
+                    "Account_Status": "11",
+                    "Current_Balance": "200000",
+                    "Rate_of_Interest": "15.0",
+                    "Portfolio_Type": "I",
+                    "Repayment_Tenure": "24",
+                    "Highest_Credit_or_Original_Loan_Amount": "200000"
+                }
+            ]
+        }
+    }
+} 
