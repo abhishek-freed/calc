@@ -302,20 +302,36 @@
                 }
 
                 const result = await response.json();
-                console.log('Backend response:', result);
+                console.log('Raw backend response:', JSON.stringify(result, null, 2));
 
                 if (!result.success) {
                     throw new Error(result.error || 'Unknown error occurred');
                 }
 
+                // Log the timeline data
+                console.log('First month data:', result.timeline[0]);
+                console.log('Remaining balances:', result.timeline[0].remaining_balances);
+
                 // Calculate total debt from the first month's remaining balances
                 const firstMonth = result.timeline[0];
-                const totalDebt = Object.values(firstMonth.remaining_balances.credit_cards).reduce((a, b) => a + b, 0) +
-                                Object.values(firstMonth.remaining_balances.personal_loans).reduce((a, b) => a + b, 0);
+                const creditCardBalances = Object.values(firstMonth.remaining_balances.credit_cards);
+                const personalLoanBalances = Object.values(firstMonth.remaining_balances.personal_loans);
+                
+                console.log('Credit card balances:', creditCardBalances);
+                console.log('Personal loan balances:', personalLoanBalances);
+
+                const totalDebt = creditCardBalances.reduce((a, b) => a + b, 0) +
+                                personalLoanBalances.reduce((a, b) => a + b, 0);
                 
                 // Calculate total credit cards and personal loans
-                const totalCreditCards = Object.values(firstMonth.remaining_balances.credit_cards).reduce((a, b) => a + b, 0);
-                const totalPersonalLoans = Object.values(firstMonth.remaining_balances.personal_loans).reduce((a, b) => a + b, 0);
+                const totalCreditCards = creditCardBalances.reduce((a, b) => a + b, 0);
+                const totalPersonalLoans = personalLoanBalances.reduce((a, b) => a + b, 0);
+
+                console.log('Calculated totals:', {
+                    totalDebt,
+                    totalCreditCards,
+                    totalPersonalLoans
+                });
 
                 // Update UI with results
                 document.getElementById('totalDebt').textContent = totalDebt.toFixed(2);
@@ -328,6 +344,15 @@
                 document.getElementById('interestSaved').textContent = result.results.savings.interest.toFixed(2);
                 document.getElementById('monthsSaved').textContent = result.results.savings.months;
 
+                // Log the results being displayed
+                console.log('Displaying results:', {
+                    strategy: strategy,
+                    monthsToFreedom: result.results.optimized.months,
+                    totalInterest: result.results.optimized.interest,
+                    interestSaved: result.results.savings.interest,
+                    monthsSaved: result.results.savings.months
+                });
+
                 // Update tables
                 const creditCardsTable = document.getElementById('creditCardsTable');
                 const personalLoansTable = document.getElementById('personalLoansTable');
@@ -337,17 +362,21 @@
 
                 // Create charts
                 const timelineCtx = document.getElementById('timelineChart').getContext('2d');
+                const timelineData = result.timeline.map(item => {
+                    const remaining = Object.values(item.remaining_balances.credit_cards).reduce((a, b) => a + b, 0) +
+                                    Object.values(item.remaining_balances.personal_loans).reduce((a, b) => a + b, 0);
+                    return remaining;
+                });
+
+                console.log('Timeline data for chart:', timelineData);
+
                 new Chart(timelineCtx, {
                     type: 'line',
                     data: {
                         labels: result.timeline.map(item => `Month ${item.month}`),
                         datasets: [{
                             label: 'Remaining Debt',
-                            data: result.timeline.map(item => {
-                                const remaining = Object.values(item.remaining_balances.credit_cards).reduce((a, b) => a + b, 0) +
-                                                Object.values(item.remaining_balances.personal_loans).reduce((a, b) => a + b, 0);
-                                return remaining;
-                            }),
+                            data: timelineData,
                             borderColor: '#4a6baf',
                             tension: 0.1
                         }]
@@ -366,7 +395,7 @@
                         datasets: [{
                             data: [
                                 result.results.optimized.interest,
-                                totalDebt // Principal is the initial total debt
+                                totalDebt
                             ],
                             backgroundColor: ['#dc3545', '#28a745']
                         }]
@@ -381,6 +410,8 @@
                         }
                     }
                 });
+
+                console.log('Charts created successfully');
                 
                 loading.style.display = 'none';
                 resultSection.style.display = 'block';
