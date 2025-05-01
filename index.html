@@ -369,10 +369,13 @@
         // Event Listeners
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
+            console.log('Form submitted');
             
             const fileInput = document.getElementById('creditReport');
             const monthlySavings = parseFloat(document.getElementById('monthlySavings').value);
             const strategy = document.querySelector('input[name="strategy"]:checked').value;
+
+            console.log('Input values:', { monthlySavings, strategy });
 
             if (!fileInput.files[0]) {
                 alert('Please upload a credit report file');
@@ -380,25 +383,38 @@
             }
 
             try {
+                console.log('Starting processing...');
                 loading.style.display = 'block';
                 resultSection.style.display = 'none';
 
                 const file = fileInput.files[0];
+                console.log('File selected:', file.name);
+                
                 const text = await file.text();
+                console.log('File content loaded');
+                
                 const data = JSON.parse(text);
+                console.log('JSON parsed successfully:', data);
 
                 calculator.processCreditReport(data);
+                console.log('Credit report processed');
+                
                 calculator.monthlySavings = monthlySavings;
                 calculator.strategy = strategy;
 
                 const plan = calculator.generateRepaymentPlan();
+                console.log('Repayment plan generated:', plan);
+                
                 const savings = calculator.calculateInterestSavings();
+                console.log('Savings calculated:', savings);
 
                 // Update UI
                 updateUI(plan, savings);
+                console.log('UI updated');
                 
                 loading.style.display = 'none';
                 resultSection.style.display = 'block';
+                console.log('Results displayed');
             } catch (error) {
                 console.error('Error:', error);
                 alert('Error processing credit report: ' + error.message);
@@ -407,15 +423,19 @@
         });
 
         function updateUI(plan, savings) {
+            console.log('Updating UI with plan:', plan);
             // Update summary
-            document.getElementById('totalDebt').textContent = 
-                calculator.accounts.reduce((sum, acc) => sum + acc.balance, 0).toFixed(2);
-            document.getElementById('totalCreditCards').textContent = 
-                calculator.accounts.filter(acc => acc.accountType !== '05')
-                    .reduce((sum, acc) => sum + acc.balance, 0).toFixed(2);
-            document.getElementById('totalPersonalLoans').textContent = 
-                calculator.accounts.filter(acc => acc.accountType === '05')
-                    .reduce((sum, acc) => sum + acc.balance, 0).toFixed(2);
+            const totalDebt = calculator.accounts.reduce((sum, acc) => sum + acc.balance, 0);
+            const totalCreditCards = calculator.accounts.filter(acc => acc.accountType !== '05')
+                .reduce((sum, acc) => sum + acc.balance, 0);
+            const totalPersonalLoans = calculator.accounts.filter(acc => acc.accountType === '05')
+                .reduce((sum, acc) => sum + acc.balance, 0);
+
+            console.log('Calculated totals:', { totalDebt, totalCreditCards, totalPersonalLoans });
+
+            document.getElementById('totalDebt').textContent = totalDebt.toFixed(2);
+            document.getElementById('totalCreditCards').textContent = totalCreditCards.toFixed(2);
+            document.getElementById('totalPersonalLoans').textContent = totalPersonalLoans.toFixed(2);
             
             document.getElementById('strategyUsed').textContent = 
                 calculator.strategy === 'avalanche' ? 'Avalanche' : 'Snowball';
