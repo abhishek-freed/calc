@@ -283,7 +283,7 @@
                 console.log('JSON parsed successfully:', data);
 
                 // Send data to Flask backend
-                const response = await fetch('http://localhost:5000/calculate', {
+                const response = await fetch('http://localhost:5001/calculate', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -309,15 +309,15 @@
                 }
 
                 // Update UI with results
-                document.getElementById('totalDebt').textContent = result.results.totalDebt.toFixed(2);
-                document.getElementById('totalCreditCards').textContent = result.results.totalCreditCards.toFixed(2);
-                document.getElementById('totalPersonalLoans').textContent = result.results.totalPersonalLoans.toFixed(2);
+                document.getElementById('totalDebt').textContent = result.totalDebt.toFixed(2);
+                document.getElementById('totalCreditCards').textContent = result.totalCreditCards.toFixed(2);
+                document.getElementById('totalPersonalLoans').textContent = result.totalPersonalLoans.toFixed(2);
                 
-                document.getElementById('strategyUsed').textContent = result.results.strategy;
-                document.getElementById('monthsToFreedom').textContent = result.results.monthsToFreedom;
-                document.getElementById('totalInterest').textContent = result.results.totalInterest.toFixed(2);
-                document.getElementById('interestSaved').textContent = result.results.interestSaved.toFixed(2);
-                document.getElementById('monthsSaved').textContent = result.results.monthsSaved;
+                document.getElementById('strategyUsed').textContent = result.strategy;
+                document.getElementById('monthsToFreedom').textContent = result.monthsToFreedom;
+                document.getElementById('totalInterest').textContent = result.totalInterest.toFixed(2);
+                document.getElementById('interestSaved').textContent = result.interestSaved.toFixed(2);
+                document.getElementById('monthsSaved').textContent = result.monthsSaved;
 
                 // Update tables
                 const creditCardsTable = document.getElementById('creditCardsTable');
@@ -326,7 +326,7 @@
                 creditCardsTable.innerHTML = '';
                 personalLoansTable.innerHTML = '';
 
-                result.results.accounts.forEach(account => {
+                result.accounts.forEach(account => {
                     const row = document.createElement('tr');
                     if (account.accountType === '05') {
                         row.innerHTML = `
@@ -353,10 +353,10 @@
                 new Chart(timelineCtx, {
                     type: 'line',
                     data: {
-                        labels: result.timeline.map(item => `Month ${item.month}`),
+                        labels: result.monthlyBreakdown.map(item => `Month ${item.month}`),
                         datasets: [{
                             label: 'Remaining Debt',
-                            data: result.timeline.map(item => item.remainingDebt),
+                            data: result.monthlyBreakdown.map(item => item.remainingDebt),
                             borderColor: '#4a6baf',
                             tension: 0.1
                         }]
@@ -374,8 +374,8 @@
                         labels: ['Interest', 'Principal'],
                         datasets: [{
                             data: [
-                                result.timeline.reduce((sum, item) => sum + item.interest, 0),
-                                result.timeline.reduce((sum, item) => sum + item.principal, 0)
+                                result.monthlyBreakdown.reduce((sum, item) => sum + item.interest, 0),
+                                result.monthlyBreakdown.reduce((sum, item) => sum + item.principal, 0)
                             ],
                             backgroundColor: ['#dc3545', '#28a745']
                         }]
