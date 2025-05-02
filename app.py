@@ -305,9 +305,57 @@ def calculate():
         calculator.generate_plans()
         results = calculator.calculate_interest_savings()
         
+        # Calculate initial balances
+        initial_balances = {
+            'credit_cards': {cc: data['balance'] for cc, data in calculator.debt_data['credit_cards'].items()},
+            'personal_loans': {pl: data['balance'] for pl, data in calculator.debt_data['personal_loans'].items()}
+        }
+        
+        # Calculate total initial debt
+        total_debt = sum(initial_balances['credit_cards'].values()) + sum(initial_balances['personal_loans'].values())
+        
+        # Prepare account details for frontend
+        accounts = []
+        for cc, data in calculator.debt_data['credit_cards'].items():
+            accounts.append({
+                'accountNumber': cc,
+                'accountType': '10',
+                'balance': data['balance'],
+                'interestRate': data['apr'],
+                'minPayment': data['min_payment']
+            })
+        
+        for pl, data in calculator.debt_data['personal_loans'].items():
+            accounts.append({
+                'accountNumber': pl,
+                'accountType': '05',
+                'balance': data['balance'],
+                'interestRate': data['apr'],
+                'emi': data['emi'],
+                'tenure': data['tenure']
+            })
+        
         return jsonify({
             'success': True,
-            'results': results,
+            'results': {
+                'optimized': {
+                    'interest': results['optimized']['interest'],
+                    'months': results['optimized']['months']
+                },
+                'minimum': {
+                    'interest': results['minimum']['interest'],
+                    'months': results['minimum']['months']
+                },
+                'savings': {
+                    'interest': results['savings']['interest'],
+                    'months': results['savings']['months']
+                },
+                'totalDebt': total_debt,
+                'totalCreditCards': sum(initial_balances['credit_cards'].values()),
+                'totalPersonalLoans': sum(initial_balances['personal_loans'].values()),
+                'strategy': strategy
+            },
+            'accounts': accounts,
             'timeline': calculator.optimized_plan['timeline']
         })
     except Exception as e:
